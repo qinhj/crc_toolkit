@@ -65,6 +65,10 @@ const crc_model_param_s crc16_x25 = { "CRC16-X25",
 const crc_model_param_s crc32 = { "CRC32",
 32, 1, 1, 0, 0x4c11db7, 0xffffffff, 0xffffffff, 0xCBF43926
 };
+// Note: One can't use reversed poly directly! Try poly with refin as 1.
+const crc_model_param_s crc32_r = { "CRC32",
+32, 0, 0, 0, 0xedb88320, 0xffffffff, 0xffffffff, 0xCBF43926
+};
 
 void smoke_test(const crc_model_param_s param) {
     crc_model_t m = crc_util_model_init(param, NULL);
@@ -90,5 +94,6 @@ int main(int argc, char *argv[]) {
     smoke_test(crc16_dnp_swap);
     smoke_test(crc16_x25);
     smoke_test(crc32);
+    smoke_test(crc32_r);
     return 0;
 }

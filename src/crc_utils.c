@@ -14,6 +14,11 @@
 #include "elog.h"
 #include "crc_utils.h"
 
+#ifndef _DEBUG
+#undef log_verbose
+#define log_verbose(...)
+#endif /* _DEBUG */
+
 typedef struct _crc_model_s {
     crc_model_param_s param;
 
@@ -30,31 +35,37 @@ typedef struct _crc_model_s {
 /* -------------------- private interface -------------------- */
 
 static __inline int crc_util_param_check(crc_model_param_s param) {
+    int rc = 0;
     crc_t crcmask = ((((crc_t)1 << (param.width - 1)) - 1) << 1) | 1;
     // check param: name (ignore)
     // check param: width
     if (param.width < 1 || 64 < param.width) {
+        rc++;
         log_error("[%s] invalid model param width: %u\n", __FUNCTION__, param.width);
     }
     // check param: refin/out (ignore)
     // check param: swapout
     if (param.swapout && 16 != param.width) {
+        rc++;
         log_error("[%s] invalid model param swapout: %d\n", __FUNCTION__, param.swapout);
     }
     // check param: poly
-    if (param.poly != (param.poly & crcmask)) {
+    if (param.poly != (param.poly & crcmask) || !(param.poly & (crc_t)0x01)) {
+        rc++;
         log_error("[%s] invalid model param poly: " CRC_F "\n", __FUNCTION__, param.poly);
     }
     // check param: init
     if (param.init != (param.init & crcmask)) {
+        rc++;
         log_error("[%s] invalid model param init: " CRC_F "\n", __FUNCTION__, param.init);
     }
     // check param: xorout
     if (param.xorout != (param.xorout & crcmask)) {
+        rc++;
         log_error("[%s] invalid model param xorout: " CRC_F "\n", __FUNCTION__, param.xorout);
     }
     // check param: check (ignore)
-    return 0;
+    return rc;
 }
 
 // Reflects the lower 'bitnum' bits of 'crc'
@@ -216,6 +227,7 @@ static int crc_util_table_generate(crc_model_t model) {
         if (model->param.refin) crc = crc_util_reflect(crc, model->param.width);
         crc &= model->crc_mask;
         model->table[i] = crc;
+        //printf("crc table[0x%X]: 0x"CRC_F"\n", i, crc);
     }
     return 0;
 }
@@ -237,6 +249,7 @@ int crc_util_model_show(const crc_model_t m) {
         printf(" crcxor     :  0x"CRC_F"\n", m->param.xorout);
         printf(" refin      :  %d\n", m->param.refin);
         printf(" refout     :  %d\n", m->param.refout);
+        printf("\n");
     }
     return 0;
 }
@@ -334,5 +347,6 @@ void crc_util_model_debug(const crc_model_t m, const uint8_t *p, size_t len) {
             log_error("[%s] crc lookup table fast :   0x"CRC_F"(0x"CRC_F")\n", __FUNCTION__, crc, m->param.check);
         }
     }
+    printf("\n");
 }
 #endif  /* _DEBUG */
