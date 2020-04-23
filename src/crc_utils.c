@@ -11,13 +11,8 @@
 #include <string.h> // for: strlen
 #endif /* _DEBUG */
 /* user headers */
+#include "elog.h"
 #include "crc_utils.h"
-
-#define log_error(...)      fprintf(stdout, "[E] " __VA_ARGS__)
-#define log_warn(...)       fprintf(stdout, "[W] " __VA_ARGS__)
-#define log_info(...)       fprintf(stdout, "[I] " __VA_ARGS__)
-#define log_debug(...)      fprintf(stdout, "[D] " __VA_ARGS__)
-#define log_verbose(...)    fprintf(stdout, "[V] " __VA_ARGS__)
 
 typedef struct _crc_model_s {
     crc_model_param_s param;
@@ -42,6 +37,10 @@ static __inline int crc_util_param_check(crc_model_param_s param) {
         log_error("[%s] invalid model param width: %u\n", __FUNCTION__, param.width);
     }
     // check param: refin/out (ignore)
+    // check param: swapout
+    if (param.swapout && 16 != param.width) {
+        log_error("[%s] invalid model param swapout: %d\n", __FUNCTION__, param.swapout);
+    }
     // check param: poly
     if (param.poly != (param.poly & crcmask)) {
         log_error("[%s] invalid model param poly: " CRC_F "\n", __FUNCTION__, param.poly);
@@ -54,7 +53,7 @@ static __inline int crc_util_param_check(crc_model_param_s param) {
     if (param.xorout != (param.xorout & crcmask)) {
         log_error("[%s] invalid model param xorout: " CRC_F "\n", __FUNCTION__, param.xorout);
     }
-    // check param: check(ignore)
+    // check param: check (ignore)
     return 0;
 }
 
@@ -99,7 +98,7 @@ static crc_t crc_util_table(const crc_model_t m, const uint8_t *p, size_t len) {
     if (m->param.refout ^ m->param.refin) crc = crc_util_reflect(crc, order);
     crc ^= m->param.xorout;
     crc &= m->crc_mask;
-    return crc;
+    return (m->param.swapout) ? ((crc & 0xff00) >> 8 | (crc & 0x00ff) << 8) : crc;
 }
 
 // Bit by bit algorithm with augmented zero bytes.
@@ -130,7 +129,7 @@ static crc_t crc_util_bitbybit(const crc_model_t m, const uint8_t *p, size_t len
     if (m->param.refout) crc = crc_util_reflect(crc, m->param.width);
     crc ^= m->param.xorout;
     crc &= m->crc_mask;
-    return crc;
+    return (m->param.swapout) ? ((crc & 0xff00) >> 8 | (crc & 0x00ff) << 8) : crc;
 }
 
 #endif  /* CRC_UTIL_NORMAL || _DEBUG */
@@ -158,7 +157,7 @@ static crc_t crc_util_table_fast(const crc_model_t m, const uint8_t *p, size_t l
     if (m->param.refout ^ m->param.refin) crc = crc_util_reflect(crc, order);
     crc ^= m->param.xorout;
     crc &= m->crc_mask;
-    return crc;
+    return (m->param.swapout) ? ((crc & 0xff00) >> 8 | (crc & 0x00ff) << 8) : crc;
 }
 
 // Fast bit by bit algorithm without augmented zero bytes.
@@ -184,7 +183,7 @@ static crc_t crc_util_bitbybit_fast(const crc_model_t m, const uint8_t *p, size_
     if (m->param.refout) crc = crc_util_reflect(crc, m->param.width);
     crc ^= m->param.xorout;
     crc &= m->crc_mask;
-    return crc;
+    return (m->param.swapout) ? ((crc & 0xff00) >> 8 | (crc & 0x00ff) << 8) : crc;
 }
 
 #endif  /* CRC_UTIL_NORMAL */
@@ -232,10 +231,10 @@ int crc_util_model_show(const crc_model_t m) {
         printf("Parameters:\n");
         printf("\n");
         printf(" name       :  %s\n", m->param.name);
-        printf(" polynom    :  0x" CRC_F "\n", m->param.poly);
+        printf(" polynom    :  0x"CRC_F"\n", m->param.poly);
         printf(" order      :  %d\n", m->param.width);
-        printf(" crcinit    :  0x" CRC_F " direct, 0x" CRC_F " nondirect\n", m->init_direct, m->init_nodirect);
-        printf(" crcxor     :  0x" CRC_F "\n", m->param.xorout);
+        printf(" crcinit    :  0x"CRC_F" direct, 0x"CRC_F" nondirect\n", m->init_direct, m->init_nodirect);
+        printf(" crcxor     :  0x"CRC_F"\n", m->param.xorout);
         printf(" refin      :  %d\n", m->param.refin);
         printf(" refout     :  %d\n", m->param.refout);
     }
@@ -303,12 +302,37 @@ void crc_util_model_debug(const crc_model_t m, const uint8_t *p, size_t len) {
         log_error("[%s] invalid parameter: NULL\n", __FUNCTION__);
         return;
     }
-    log_verbose("[%s] input string          :   '%s' (%d bytes)\n", __FUNCTION__, p, (int)strlen((const char *)p));
-    log_verbose("[%s] crc bit by bit        :   0x" CRC_F "\n", __FUNCTION__, crc_util_bitbybit(m, p, len));
-    log_verbose("[%s] crc bit by bit fast   :   0x" CRC_F "\n", __FUNCTION__, crc_util_bitbybit_fast(m, p, len));
+    crc_t crc;
+    int l = (int)strlen((const char *)p);
+    log_verbose("[%s] input string          :   '%s' (%d bytes)\n", __FUNCTION__, p, l);
+    // test crc_util_bitbybit
+    if (m->param.check == (crc = crc_util_bitbybit(m, p, len))) {
+        log_verbose("[%s] crc bit by bit        :   0x"CRC_F"\n", __FUNCTION__, crc);
+    }
+    else {
+        log_error("[%s] crc bit by bit        :   0x"CRC_F"(0x"CRC_F")\n", __FUNCTION__, crc, m->param.check);
+    }
+    // test crc_util_bitbybit_fast
+    if (m->param.check == (crc = crc_util_bitbybit_fast(m, p, len))) {
+        log_verbose("[%s] crc bit by bit fast   :   0x"CRC_F"\n", __FUNCTION__, crc);
+    }
+    else {
+        log_error("[%s] crc bit by bit fast   :   0x"CRC_F"(0x"CRC_F")\n", __FUNCTION__, crc, m->param.check);
+    }
+    // test crc_util_table(_fast)
     if (!(m->param.width & 7)) {
-        log_verbose("[%s] crc lookup table      :   0x" CRC_F "\n", __FUNCTION__, crc_util_table(m, p, len));
-        log_verbose("[%s] crc lookup table fast :   0x" CRC_F "\n", __FUNCTION__, crc_util_table_fast(m, p, len));
+        if (m->param.check == (crc = crc_util_table(m, p, len))) {
+            log_verbose("[%s] crc lookup table      :   0x"CRC_F"\n", __FUNCTION__, crc);
+        }
+        else {
+            log_error("[%s] crc lookup table      :   0x"CRC_F"(0x"CRC_F")\n", __FUNCTION__, crc, m->param.check);
+        }
+        if (m->param.check == (crc = crc_util_table_fast(m, p, len))) {
+            log_verbose("[%s] crc lookup table fast :   0x"CRC_F"\n", __FUNCTION__, crc);
+        }
+        else {
+            log_error("[%s] crc lookup table fast :   0x"CRC_F"(0x"CRC_F")\n", __FUNCTION__, crc, m->param.check);
+        }
     }
 }
 #endif  /* _DEBUG */

@@ -26,5 +26,8 @@
     <ClInclude Include="..\inc\crc_utils.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\inc\elog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

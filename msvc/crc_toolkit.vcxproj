@@ -151,6 +151,7 @@
     <ClCompile Include="..\src\crc_utils.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\inc\elog.h" />
     <ClInclude Include="..\inc\crc_utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

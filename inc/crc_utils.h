@@ -28,13 +28,14 @@ extern "C" {
     typedef struct _crc_model_param_s *crc_model_param_t;
     typedef struct _crc_model_param_s {
         const char  *name;  // model name (e.g. CRC32)
-        uint16_t    width;  // polynominal order
+        uint8_t     width;  // polynominal order
         uint8_t     refin;  // flag: reflect input byte
         uint8_t     refout; // flag: reflect crc register
+        uint8_t     swapout;// swap the crc by byte(only available for CRC16-DPN/Kermit)
         crc_t       poly;   // generator polynominal
         crc_t       init;   // init value for register
         crc_t       xorout; // post processing
-        crc_t       check;  // currently ignore
+        crc_t       check;  // default output of "123456789"
     } crc_model_param_s;
 
     /* -------------------- public  interface -------------------- */
@@ -53,4 +54,4 @@ extern "C" {
 }
 #endif //!__cplusplus
 
-#endif  /*_CRC_UTILS_H_*/
+#endif  /* _CRC_UTILS_H_ */

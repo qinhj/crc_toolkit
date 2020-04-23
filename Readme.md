@@ -1,5 +1,19 @@
 ## Sth about CRC(Cyclic Redundancy Check)
 
+### Quick Start
+```
+1. msvc
+add crc_toolkit.vcxproj to your solution, compile -> build -> run
+
+2. gcc
+## x86 test
+$ make
+$ ./demo
+## x64 test
+$ make CRC64=1
+$ ./demo
+```
+
 ### GF: Galois(Évariste Galois) Field
 ```
 1. GF(p)
@@ -13,10 +27,10 @@
 (4) 全体非0元素集合构成有限乘群, 且每个元素的级有限. 该群为循环群, 必存在生成元.
 ```
 
-## Mathematical Derivation
+### Mathematical Derivation
 ![algo](./res/CRC_ALGO.jpg)
 
-## Industrial Standard
+### Industrial Standard
 ```
 * CRC12     // for 6bit string
 * CRC16     // for 8bit string, used by America
@@ -24,7 +38,7 @@
 * CRC32     // used by sync P2P(Point to Point), WINRAR, NERO, ARJ, LHA
 ```
 
-## CRC Model Parameter
+### CRC Model Parameter
 ```
 ## e.g. CRC32
 Name:   "CRC-32"
@@ -34,5 +48,5 @@ Init:   FFFFFFFF
 RefIn:  True        e.g. "1"(0x31: 00110001) => 0x8C: 10001100; 0x31 32 33 34 => 0x8C 4C CC 2C
 RefOut: True        e.g. 0x31 32 33 34 => 0x2C CC 4C 8C
 XorOut: FFFFFFFF
-Check:  CBF43926
+Check:  CBF43926    output of "123456789"
 ```
