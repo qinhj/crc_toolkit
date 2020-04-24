@@ -9,9 +9,11 @@
 #include <stdio.h>  // for: NULL
 #include <string.h> // for: strlen
 /* user headers */
+#include "elog.h"
 #include "crc_utils.h"
 
 const uint8_t str[] = "123456789";
+uint8_t str_crc[20] = "123456789";
 
 const crc_model_param_s crc16 = { "CRC16(IBM/ARC/LHA)",
 16, 1, 1, 0, 0x8005, 0x0000, 0x0000, 0xBB3D
@@ -72,8 +74,44 @@ const crc_model_param_s crc32_r = { "CRC32",
 
 void smoke_test(const crc_model_param_s param) {
     crc_model_t m = crc_util_model_init(param, NULL);
+    if (NULL == m) {
+        return;
+    }
+
+    // test1: show model parameters
     crc_util_model_show(m);
-    crc_util_model_debug(m, str, strlen((const char *)str));
+
+    // test2: calculate crc results
+    size_t str_len = strlen((const char *)str);
+    crc_util_model_debug(m, str, str_len);
+
+    // test3: check crc with raw data
+    crc_t crc = crc_util_model_run(m, str, str_len) ^ param.xorout;
+    size_t i, crc_len = param.width / 8;
+#if 0
+    printf("crc: 0x"CRC_F" 0x", crc);
+    for (i = 0; i < sizeof(crc); i++) {
+        printf("%02X", ((const uint8_t *)&crc)[i]);
+    }
+    printf("\n");
+#endif
+    // reset str with crc
+    memset(str_crc + str_len, 0x00, 20 - str_len);
+    // append crc value to str
+    const uint8_t *_crc = (const uint8_t *)&crc;
+    for (i = str_len; i < str_len + crc_len; i++) {
+        str_crc[i] = (param.refout ^ param.swapout) ?
+            _crc[i - str_len] : _crc[crc_len - i + str_len - 1];
+    }
+    crc = crc_util_model_run(m, str_crc, str_len + crc_len);
+#if 0
+    printf("str with crc[%d]: 0x", (int)crc_len);
+    for (i = 0; i < str_len + crc_len; i++) {
+        printf("%02X", str_crc[i]);
+    }
+    printf(", check: 0x"CRC_F"\n", crc);
+#endif
+    if (crc != param.xorout) log_error("unexpected crc check error!\n");
     crc_util_model_fini(m);
 }
 

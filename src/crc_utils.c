@@ -300,8 +300,11 @@ crc_model_t crc_util_model_init(crc_model_param_s param, void *data) {
     m->init_direct = param.init;
     m->init_nodirect = crc;
 #endif /* CRC_UTIL_NORMAL */
-    // generate lookup table
-    return (crc_util_table_generate(m), m);
+    // generate lookup table if available
+    if (!(m->param.width & 7)) {
+        crc_util_table_generate(m);
+    }
+    return m;
 }
 
 int crc_util_model_fini(crc_model_t model) {
